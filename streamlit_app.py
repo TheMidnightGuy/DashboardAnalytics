@@ -112,6 +112,88 @@ elif vista=="Reporte":
 else:
     st.header("Vista")
 
+#--- Selector de modelo activo ---
+#Todos estos componentes se encuentran dentro de un contenedor
+#Juntamos los elementos dentro de una columna para organizarlos de manera horizontal
+
+with st.container():
+
+    col1 , col2 = st.columns(2)
+
+    with col1:
+        current_model = st.selectbox(
+            "Modelo actual",
+            ("Modelo RL","Modelo API"),
+            index=None,
+            placeholder="Seleccione modelo"
+        )
+
+    with col2:
+        st.write("Estado:")
+        st.badge("Activo", color="green")
+        st.badge("En prueba", color="yellow")
+        st.badge("Detenido", color="red")
+
+#--- Metricas comunes del modelo ---
+with st.container():
+    
+    #Creamos tres columnas, una para cada metrica (Accuracy, F1score, auc/roc)
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.write("Accuracy")
+        st.metric(label="Accuracy", value="0.78", delta="+1.4%")
+
+    with col2:
+        st.write("F1-Score")
+        st.metric(label="Accuracy", value="0.97", delta="+6 pts")
+
+    with col3:
+        st.write("AUC/ROC")
+        st.metric(label="Accuracy", value="0.71", delta="-5 pts")
+
+#--- Seleccionar tipo de Drift ---
+# Tipos de drift: Data, Concept, Model Perf. Rendimiento general
+
+import numpy as np
+from numpy.random import default_rng as rng
+
+df = pd.DataFrame(
+    {
+        "col1": list(range(20)) * 3,
+        "col2": rng(0).standard_normal(60),
+        "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
+    }
+)
+
+with st.container():
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("heatmap")
+        st.line_chart(df, x="col1", y="col2", color="col3")
+
+
+    with col2:
+        st.subheader("Distribución ref vs actual")
+        st.line_chart(df, x="col1", y="col2", color="col3")
+
+#--- Rendimiento detallado ---
+#Curva roc, matriz de confusión, Importance de features
+
+#--- Alertas definidas  ---
+# Reglas de configuración -> st.warning, st.error
+# Las alertas se deben configurar en base a los parametros de detección de drift del modelo
+
+#--- Resumen de los datos utilizados ---
+#Fuente de datos: dataset
+#etc...
+
+    
+
+
+
 #--- Reporte Data Drift ---
 if vista=="Reporte" and tipo_reporte=="DataDrift":
     with open("reports/data_drift/datadrift_report.html", 'r', encoding='utf-8') as f:
