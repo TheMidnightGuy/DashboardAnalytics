@@ -36,7 +36,7 @@ st.set_page_config(
 # - Conexiones a BD
 # Mantiene el objeto original pero lo devuelve como una referencia.
 
-#---Barra lateral---
+#===== BARRA LATERAL ======
 with st.sidebar:
     #Imagen - logo EvidentlyAI
     st.image(image='https://cdn.prod.website-files.com/660ef16a9e0687d9cc2746d7/66180fbf4f40e9ed73ca2d39_evidently_ai_logo_fi.png')
@@ -50,7 +50,7 @@ with st.sidebar:
     #Tipo de reporte
     tipo_reporte = st.selectbox(
         "Tipo de reporte",
-        ("DataDrift","Concept drift"),
+        ("DataDrift","DataQuality","ModelPerformance"),
         index=None,
         placeholder="Selecciona tipo"
     )
@@ -82,11 +82,11 @@ with st.sidebar:
     elif vista=="Reporte":
         st.subheader("Exportar Reporte")
 
-    #Formato a exportar (JSON/HTML)
+    #Formato a exportar (PDF)
 
     formato_exp = st.selectbox(
         "Formato",
-        ("JSON", "HTML"),
+        ("PDF"),
         index=None,
         placeholder="Selecciona formato"
     )
@@ -102,82 +102,7 @@ with st.sidebar:
         tm.sleep(1)
         my_bar.empty()
 
-#---Header Pagina---
-#Nombre de Header depende de parametros seleccionados en barra lateral
- #llamamos a 'vista'
-if vista=="Dashboard":
-    st.header("Dashboard")
-elif vista=="Reporte":
-    st.header("Reporte")
-else:
-    st.header("Vista")
 
-#--- Selector de modelo activo ---
-#Todos estos componentes se encuentran dentro de un contenedor
-#Juntamos los elementos dentro de una columna para organizarlos de manera horizontal
-
-with st.container():
-
-    col1 , col2 = st.columns(2)
-
-    with col1:
-        current_model = st.selectbox(
-            "Modelo actual",
-            ("Modelo RL","Modelo API"),
-            index=None,
-            placeholder="Seleccione modelo"
-        )
-
-    with col2:
-        st.write("Estado:")
-        st.badge("Activo", color="green")
-        st.badge("En prueba", color="yellow")
-        st.badge("Detenido", color="red")
-
-#--- Metricas comunes del modelo ---
-with st.container():
-    
-    #Creamos tres columnas, una para cada metrica (Accuracy, F1score, auc/roc)
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.write("Accuracy")
-        st.metric(label="Accuracy", value="0.78", delta="+1.4%")
-
-    with col2:
-        st.write("F1-Score")
-        st.metric(label="Accuracy", value="0.97", delta="+6 pts")
-
-    with col3:
-        st.write("AUC/ROC")
-        st.metric(label="Accuracy", value="0.71", delta="-5 pts")
-
-#--- Seleccionar tipo de Drift ---
-# Tipos de drift: Data, Concept, Model Perf. Rendimiento general
-
-import numpy as np
-from numpy.random import default_rng as rng
-
-df = pd.DataFrame(
-    {
-        "col1": list(range(20)) * 3,
-        "col2": rng(0).standard_normal(60),
-        "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
-    }
-)
-
-with st.container():
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("heatmap")
-        st.line_chart(df, x="col1", y="col2", color="col3")
-
-
-    with col2:
-        st.subheader("Distribución ref vs actual")
-        st.line_chart(df, x="col1", y="col2", color="col3")
 
 #--- Rendimiento detallado ---
 #Curva roc, matriz de confusión, Importance de features
@@ -192,16 +117,112 @@ with st.container():
 
     
 
-
+#===== VISTAS ======
 
 #--- Reporte Data Drift ---
 if vista=="Reporte" and tipo_reporte=="DataDrift":
     with open("reports/data_drift/datadrift_report.html", 'r', encoding='utf-8') as f:
-        html_data = f.read()
-        st.components.v1.html(html_data, height=2000, scrolling=True)
+        html_data_drift = f.read()
+        st.components.v1.html(html_data_drift, height=2000, scrolling=True)
+
+#--- Reporte Data Quality ---
+if vista=="Reporte" and tipo_reporte=="DataQuality":
+    with open("reports/data_quality/data_quality_report.html", 'r', encoding="utf-8") as f:
+        html_data_quality = f.read()
+        st.components.v1.html(html_data_quality, height=2000, scrolling=True)
+
+if vista=="Reporte" and tipo_reporte=="ModelPerformance":
+    with open("reports/model_performance/model_perform_report.html", 'r', encoding="utf-8") as  f:
+        html_model_perf = f.read()
+        st.components.v1.html(html_model_perf, height=2000, scrolling=True)
+
+if vista=="Dashboard":
+        #===== PAGINA ======
+
+    #---Header Pagina---
+    #Nombre de Header depende de parametros seleccionados en barra lateral
+    #llamamos a 'vista'
+    if vista=="Dashboard":
+        st.header("Dashboard")
+    elif vista=="Reporte":
+        st.header("Reporte")
+    else:
+        st.header("Vista")
+
+    #--- Selector de modelo activo ---
+    #Todos estos componentes se encuentran dentro de un contenedor
+    #Juntamos los elementos dentro de una columna para organizarlos de manera horizontal
+
+    with st.container():
+
+        col1 , col2 = st.columns(2)
+
+        with col1:
+            current_model = st.selectbox(
+                "Modelo actual",
+                ("Modelo RL","Modelo API"),
+                index=None,
+                placeholder="Seleccione modelo"
+            )
+
+        with col2:
+            st.write("Estado:")
+            st.badge("Activo", color="green")
+            st.badge("En prueba", color="yellow")
+            st.badge("Detenido", color="red")
+
+    #--- Selección tipo de reporte ---
+
+    #Definimos pestañas
+    tab1, tab2, tab3 = st.tabs(["Data Drift", "Data Quality", "Model Performance"])
+
+    with tab1:
+        st.write("Data drift quality")
+
+    #--- Metricas comunes del modelo ---
+    with st.container():
+        
+        #Creamos tres columnas, una para cada metrica (Accuracy, F1score, auc/roc)
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.write("Accuracy")
+            st.metric(label="Accuracy", value="0.78", delta="+1.4%")
+
+        with col2:
+            st.write("F1-Score")
+            st.metric(label="Accuracy", value="0.97", delta="+6 pts")
+
+        with col3:
+            st.write("AUC/ROC")
+            st.metric(label="Accuracy", value="0.71", delta="-5 pts")
+
+    #--- Seleccionar tipo de Drift ---
+    # Tipos de drift: Data, Concept, Model Perf. Rendimiento general
+
+    import numpy as np
+    from numpy.random import default_rng as rng
+
+    df = pd.DataFrame(
+        {
+            "col1": list(range(20)) * 3,
+            "col2": rng(0).standard_normal(60),
+            "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
+        }
+    )
+
+    with st.container():
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("heatmap")
+            st.line_chart(df, x="col1", y="col2", color="col3")
 
 
-
+        with col2:
+            st.subheader("Distribución ref vs actual")
+            st.line_chart(df, x="col1", y="col2", color="col3")
 
 
 
