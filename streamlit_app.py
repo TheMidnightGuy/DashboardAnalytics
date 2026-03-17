@@ -12,7 +12,7 @@ import datetime as dt
 #Definimos icono
 #Ocupamos la totalidad de la pagina horizontalmente
 st.set_page_config(
-    page_title= 'Dashboard EvidentlyAI',
+    page_title= 'EVIDENTLY - Dashboard Analytics',
     page_icon="📉",
     layout="wide"
 )
@@ -176,11 +176,12 @@ if vista=="Dashboard":
     #Definimos pestañas
     tab1, tab2, tab3 = st.tabs(["Data Drift", "Data Quality", "Model Performance"])
 
+    #Pestaña 1- Data drift
     with tab1:
-        st.write("Data drift quality")
+        st.write("Data drift")
 
     #--- Metricas comunes del modelo ---
-    with st.container():
+    #with st.container():
         
         #Creamos tres columnas, una para cada metrica (Accuracy, F1score, auc/roc)
         col1, col2, col3 = st.columns(3)
@@ -197,21 +198,22 @@ if vista=="Dashboard":
             st.write("AUC/ROC")
             st.metric(label="Accuracy", value="0.71", delta="-5 pts")
 
+
     #--- Seleccionar tipo de Drift ---
     # Tipos de drift: Data, Concept, Model Perf. Rendimiento general
 
-    import numpy as np
-    from numpy.random import default_rng as rng
+        import numpy as np
+        from numpy.random import default_rng as rng
 
-    df = pd.DataFrame(
-        {
-            "col1": list(range(20)) * 3,
-            "col2": rng(0).standard_normal(60),
-            "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
-        }
-    )
+        df = pd.DataFrame(
+            {
+                "col1": list(range(20)) * 3,
+                "col2": rng(0).standard_normal(60),
+                "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
+            }
+        )
 
-    with st.container():
+
 
         col1, col2 = st.columns(2)
 
@@ -223,6 +225,17 @@ if vista=="Dashboard":
         with col2:
             st.subheader("Distribución ref vs actual")
             st.line_chart(df, x="col1", y="col2", color="col3")
+
+    
+    #Pestaña 2- Data quality
+    with tab2:
+        st.write ("Data quality")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+
+    with tab3:
+        st.write ("Model performance")
 
 
 
