@@ -17,6 +17,8 @@ st.set_page_config(
     layout="wide"
 )
 
+#Parser JSON
+
 #--- CACHE DE LA APP ---
 # -- Cache de data -- 
 #   (@st.cache_data)
@@ -54,7 +56,7 @@ with st.sidebar:
         index=None,
         placeholder="Selecciona tipo"
     )
-    #--- Sección Infomación ---
+    #--- Sección acciones ---
     #Header Actualizar info
     st.write("---------------")
     st.subheader("Acciones")
@@ -72,7 +74,27 @@ with st.sidebar:
         msg.empty()
     else:
         st.caption('Ultima vez actualizado: ')
-        
+
+    #--- Sección carga de archivos ----
+        #Header carga de archivos
+    st.write("---------------")
+    st.subheader("Carga de archivos")
+    #Cargar archivos CSV
+    #Usuario carga dataset
+    upload_file_csv = st.file_uploader(label="**Cargar dataset**",
+                                   max_upload_size=10,
+                                   type="csv")
+    if upload_file_csv is not None:
+        dataframe_upload = pd.read_csv(upload_file_csv)
+
+    #Cargar archivos JSON
+    #Usuario carga snapshots
+    upload_file_json = st.file_uploader(label='**Cargar snapshot**',
+                                        max_upload_size=10,
+                                        type="json")
+
+
+
     #--- Sección Exportar ---
     st.write("---------------")
 
@@ -137,6 +159,7 @@ if vista=="Reporte" and tipo_reporte=="ModelPerformance":
         st.components.v1.html(html_model_perf, height=2000, scrolling=True)
 
 if vista=="Dashboard":
+
         #===== PAGINA ======
 
     #---Header Pagina---
@@ -178,62 +201,72 @@ if vista=="Dashboard":
 
     #Pestaña 1- Data drift
     with tab1:
-        st.write("Data drift")
+    
+        with st.container():
+    #---- Alertas y resumen ----
+            st.write ("**Alertas y resumen ejecutivo**")
+            st.error('Alerta! Drift en dataset: 10% - umbral establecido en Max.7%', icon="🟥")
+            st.warning('Advertencia! Drift en dataset: 5% - umbral establecido en Max.7%', icon="⚠️")
 
     #--- Metricas comunes del modelo ---
-    #with st.container():
-        
-        #Creamos tres columnas, una para cada metrica (Accuracy, F1score, auc/roc)
-        col1, col2, col3 = st.columns(3)
+        with st.container():
+            st.write("**KPIs**")
+            
+            #Creamos tres columnas, una para cada metrica (Accuracy, F1score, auc/roc)
+            col1, col2, col3, col4 = st.columns(4)
 
-        with col1:
-            st.write("Accuracy")
-            st.metric(label="Accuracy", value="0.78", delta="+1.4%")
+            with col1:
+                st.metric(label="**Dataset drift**", value="Detectado", delta="5 columnas afectadas", delta_color="red", delta_arrow="off", border=True)
 
-        with col2:
-            st.write("F1-Score")
-            st.metric(label="Accuracy", value="0.97", delta="+6 pts")
+            with col2:
+                st.metric(label="**Drift share**", value="14,9%", delta="3.2%", delta_color='red', border=True)
 
-        with col3:
-            st.write("AUC/ROC")
-            st.metric(label="Accuracy", value="0.71", delta="-5 pts")
+            with col3:
+                st.metric(label="**Columnas con drift**", value="5/34", delta="2 nuevas columnas", delta_color="red", border=True)
 
+            with col4:
+                st.metric(label="**Umbral de Drift**",value="10,5%",  delta="4,4%", delta_color="red", delta_arrow="up", border=True)
 
-    #--- Seleccionar tipo de Drift ---
-    # Tipos de drift: Data, Concept, Model Perf. Rendimiento general
+            st.divider()
 
-        import numpy as np
-        from numpy.random import default_rng as rng
+    #--- Gráficos ---
+        #--- Análisis por columna ---
+        with st.container():
+            st.write("**Análisis por columna**")
 
-        df = pd.DataFrame(
-            {
-                "col1": list(range(20)) * 3,
-                "col2": rng(0).standard_normal(60),
-                "col3": ["a"] * 20 + ["b"] * 20 + ["c"] * 20,
-            }
-        )
+            columnas = data["columnas"]
 
+            #st.dataframe()
+            
 
+        #--- Dataset cargado ---
+        #Dataframe utilizado: para cargar un dataset se deben seguir los mismos pasos que si se hiciera en un notebook.
+        #cargamos dataset al final de la pagina 
+        with st.container():
+        #Header
+            st.header("Dataset cargado")
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("heatmap")
-            st.line_chart(df, x="col1", y="col2", color="col3")
-
-
-        with col2:
-            st.subheader("Distribución ref vs actual")
-            st.line_chart(df, x="col1", y="col2", color="col3")
+            #Visualizamos
+            if upload_file_csv is None:
+                st.warning("Dataframe no se ha cargado aún")
+            elif upload_file_csv is not None:
+                st.dataframe(dataframe_upload)
 
     
-    #Pestaña 2- Data quality
+    #Pestaña 2 - Data quality
     with tab2:
-        st.write ("Data quality")
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+        #Advertencias tras analizar datos del modelo
+        st.write ("Alertas y resumen ejecutivo")
+        st.error('Alerta! Nulos en dataset: 10% - umbral establecido en Max.7%', icon="🟥")
+        st.warning('Advertencia! Nulos en dataset: 5% - umbral establecido en Max.7%', icon="⚠️")
 
+        #
+        
 
+    #Pestaña 3 - Model Performance
     with tab3:
         st.write ("Model performance")
 
