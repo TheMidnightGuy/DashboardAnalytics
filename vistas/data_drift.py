@@ -123,7 +123,7 @@ def render(data: dict, dataframe_upload: pd.DataFrame | None):
 
     # ── Barras derecha ───────────────────────────────────
     with col_der:
-        # ✅ .sort_values() dentro del paréntesis
+        # .sort_values() dentro del paréntesis
         df_barras = (
             pd.DataFrame([
                 {
@@ -224,7 +224,7 @@ def render(data: dict, dataframe_upload: pd.DataFrame | None):
     # ══════════════════════════════════════════════════════
     # ESTADÍSTICOS COMPLETOS — colapsado
     # ══════════════════════════════════════════════════════
-    with st.expander("📊 Ver detalle estadístico completo"):
+    with st.expander("Ver detalle estadístico completo"):
         df_stats = (
             pd.DataFrame([
                 {

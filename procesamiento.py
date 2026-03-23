@@ -32,9 +32,37 @@ os.makedirs("data/snapshots",     exist_ok=True)
 #============================
 #Dentro de la lógica de streamlit al cargar un archivo este se guarda en 'data/uploaded.csv'.
 
+print("Cargando dataset...")
+
 load_file = "data/uploaded.csv"
 df_upload = pd.read_csv(load_file)
+print("Tipos de datos:")
+print("========================")
+print(df_upload.dtypes)
+print("========================")
+print("N° de filas y columnas:")
+print(df_upload.shape)
+print("========================")
+print(df_upload)
 print("Dataset cargado correctamente")
+
+#============================
+#     Limite de dataset 
+#============================
+#TESTING: Se limita el número de filas del dataset en caso de ser un número elevado (>=10000).
+# Esto debido a que evidently se ve limitado ante una ingesta de datos en gran volumen a la hora de generar el reporte.
+
+print("Verificando condiciones de limite...")
+
+LIMIT = 20000
+
+#Se definen condiciones para aplicar limite en el dataset
+# Se muestran a traves del output si se aplicaron cambios
+if len(df_upload) > LIMIT:
+    df_upload = df_upload.sample(n=LIMIT ,random_state=42)
+    print(f"Limite aplicado a: {LIMIT} filas")
+else:
+    print(f"No se ha modificado el dataset. {len(df_upload)} filas")
 
 #============================
 #     Drift artificial 
@@ -47,16 +75,36 @@ print("Dataset cargado correctamente")
 #   obtiene el nombre de los valores dentro de una columna y los reemplaza por un valor aleatorio.
 #   se agrega ruido gaussiano: los valores se agrupan en torno a la media y se le agrega una pequeña varianza.
 
+print("Aplicando drift artificial...")
+
 df_drift = df_upload.copy()
 
 for col in df_drift.columns:
-    if df_drift[col].dtype == 'object':
+    if df_drift[col].dtype.name in ['object', 'category', 'bool']:
         unique_vals = df_drift[col].dropna().unique()
-        df_drift.loc[df_drift.sample(frac=0.2).index, col] = np.random.choice(unique_vals)
-    elif df_drift[col].dtype == 'int64':
-        df_drift.loc[df_drift.sample(frac=0.2).index, col] += np.random.normal(
-            0, df_drift[col].std() * 0.5
-        )
+        if len(unique_vals) > 1:
+            df_drift.loc[df_drift.sample(frac=0.2).index, col] = np.random.choice(unique_vals)
+
+    elif df_drift[col].dtype.name in ['int64', 'float64', 'int32']:
+        std = df_drift[col].std()
+        if std > 0:
+            idx = df_drift.sample(frac=0.2).index
+            ruido = np.random.normal(0, std * 0.5, size=len(idx))
+
+            ruido = ruido.astype(df_drift[col].dtype)
+
+            df_drift.loc[idx, col] += ruido
+
+
+
+print("Tipos de datos:")
+print("========================")
+print(df_drift.dtypes)
+print("========================")
+print("N° de filas y columnas:")
+print(df_drift.shape)
+print("========================")
+print(df_drift)
 
 print("Drift artificial generado")
 
@@ -95,7 +143,18 @@ print("Reporte generado correctamente")
 #============================
 #Guardamos los archivos para ser consumidos por streamlit.
 
+#reporte
 data_drift_report.save_html("reports/data_drift/data_drift_report.html")
 data_drift_report.save_json("data/snapshots/data_drift_report.json")
+print("Reporte exportado")
+
+#dataset modificado
+df_drift.to_csv("data/modified.csv", index=False)
+
+df_modified = pd.read_csv("data/modified.csv")
+print(df_modified.dtypes)
+print(df_modified.shape)
+
+print("Dataset exportado")
 
 print("Archivos exportados correctamente")

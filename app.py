@@ -16,6 +16,8 @@ from core.parser import parsear_drift, parsear_quality
 import vistas.data_drift as vista_drift
 import vistas.data_quality as vista_quality
 
+import procesamiento
+
 #======================
 # Configuración Página
 #======================
@@ -81,7 +83,8 @@ with st.sidebar:
     upload_file_csv= st.file_uploader(
         label="**Cargar dataset**",
         type="csv",
-        max_upload_size=10
+        max_upload_size=500,
+        accept_multiple_files=False
     )
 
     #Dataset hacia notebook evidently
@@ -91,22 +94,48 @@ with st.sidebar:
         dataframe_upload.to_csv("data/uploaded.csv", index=False)
 
         # Ejecutamos procesamiento.py 
-        notebook = subprocess.run(
+        # Para fines de prueba se reemplazo 'subprocess.run' por 'subprocess.Popen' el cual se diferencia en basicamente en que momento entrega el output.
+        # .run -> una vez finalizado el proceso entrega un output.
+        # .Popen -> entrega output durante ejecución. se hace uso de parametros.
+
+        proceso = subprocess.Popen(
             [sys.executable, "procesamiento.py"],
-            capture_output=True,
-            text=True
+            text=True,
+            stdout= subprocess.PIPE,
+            stderr= subprocess.STDOUT
         )
+
+        #Ya configurado el output lo mostramos en la terminal durante ejecución de streamlit.
+        for linea in proceso.stdout:
+            print(linea, end="")
+
+        #notebook = subprocess.run(
+        #    [sys.executable, "procesamiento.py"],
+        #    capture_output=True,
+        #    text=True,
+        #    timeout=500 #agregamos 5 minutos de espera maxima para que procesamiento.py se ejecuta, de lo contrario arroja una exepción
+        #)
 
         #Una vez termino el flujo del notebook:
         #   lee el json generado para posteriormente parser.py lo procese
-        if notebook.returncode == 0:
-            with open ("data/snapshots/data_drift_report.json", "r", encoding="utf-8") as f:
-                cargar_json = json.load(f)
+        #if notebook.returncode == 0:
+        #    with open ("data/snapshots/data_drift_report.json", "r", encoding="utf-8") as f:
+        #        cargar_json = json.load(f)
 
             #Usamos 'st.session_state' para persistir variables entre ejecuciones de streamlit.
             #llamamos a la función de 'parser.py'.
-            st.session_state["drift_data"] = parsear_drift(cargar_json)
-            st.session_state["drift_nombre"] = "data_drift_report.json"
+        #    st.session_state["drift_data"] = parsear_drift(cargar_json)
+        #    st.session_state["drift_nombre"] = "data_drift_report.json"
+
+            #Alerta para validar que se ha cargado correctamente el archivo csv.
+        #    st.success("Archivo CSV cargado correctamente!", icon="🟢")
+
+        #Logs para captar error en caso de que archivo no cargue correctamente.
+        #else:
+        #    ex = RuntimeError("RuntimeError exception")
+        #    st.exception(ex)
+        #    st.code(notebook.stderr) 
+        #    st.code(notebook.stdout)
     
     else:
         #Si se quita el csv cargado eliminamos la data que persiste. (usamos .pop)
@@ -114,10 +143,8 @@ with st.sidebar:
         st.session_state.pop("drift_data", None)
         st.session_state.pop("drift_nombre", None)
 
-    #--- Boton para descargar csv ---
-
     #--- Sección Exportar ---
-    st.write("---------------")
+    #st.write("---------------")
 
     #Subheader exporta (según vista)
     if vista=="Dashboard":    
@@ -125,16 +152,17 @@ with st.sidebar:
     elif vista=="Reporte":
         st.subheader("Exportar Reporte")
 
-    #Formato a exportar (PDF)
+    #Formato a exportar
 
     formato_exp = st.selectbox(
         "Formato",
-        ("HTML"),
+        ("HTML","PDF"),
         index=None,
         placeholder="Selecciona formato"
     )
 
     #Boton exportar con barra de progreso
+
     #Descargar Reporte
     if vista=="Reporte" and tipo_reporte=="DataDrift" and formato_exp=="HTML":
 
@@ -164,6 +192,9 @@ with st.sidebar:
             my_bar.empty()
 
     #Descargar Dashboard
+    #if vista=="Dashboard":
+
+    #
 
 
 
@@ -187,6 +218,20 @@ if vista=="Reporte":
             with open("reports/data_drift/data_drift_report.html", 'r', encoding='utf-8') as f:
                 html_data_drift = f.read()
                 st.components.v1.html(html_data_drift, height=2000, scrolling=True)
+
+            #Datasets cargados
+            st.header("Datasets evidently")
+
+            df_ref = dataframe_upload
+            df_act = procesamiento.df_modified
+
+            #Dataset Referencia
+            st.subheader("Dataset de referencia")
+            st.dataframe(df_ref)
+
+            #Dataset Actual
+            st.subheader("Dataset actual")
+            st.dataframe(df_act)
 
         #--- Reporte Data Quality ---
         elif tipo_reporte=="DataQuality(demo)":
