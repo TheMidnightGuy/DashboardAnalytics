@@ -9,14 +9,14 @@ import time as tm
 import json
 import subprocess
 import sys
+import hashlib
 
 #importamos modulos y vistas
 from core.parser import parsear_drift, parsear_quality
 
 import vistas.data_drift as vista_drift
 import vistas.data_quality as vista_quality
-
-import procesamiento
+import vistas.model_performance as vista_model
 
 #======================
 # Configuración Página
@@ -29,6 +29,42 @@ st.set_page_config(
     page_icon="📉",
     layout="wide"
 )
+
+#======================
+# Control de cache
+#======================
+#Para evitar cargar la aplicación completa cada vez que se inicia la aplicación integraremos control de cache con 'st.cache_data'
+#El manejo de estas es mediante funciones Python
+
+@st.cache_data
+def cargar_csv(file_content: bytes) -> pd.DataFrame:
+    """Cachea la lectura del CSV. Solo se re-ejecuta si el contenido del archivo cambia."""
+    from io import BytesIO
+    return pd.read_csv(BytesIO(file_content))
+
+@st.cache_data
+def cargar_y_parsear_drift(json_path: str, _file_hash: str) -> dict:
+    """Cachea el parseo del JSON. _file_hash fuerza invalidación cuando cambia el archivo."""
+    with open(json_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    return parsear_drift(raw)
+
+@st.cache_data
+def cargar_y_parsear_quality(json_path: str, _file_hash: str) -> dict:
+    """Cachea el parseo del JSON de quality. _file_hash fuerza invalidación cuando cambia el archivo."""
+    with open(json_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    return parsear_quality(raw)
+
+@st.cache_data
+def cargar_y_parsear_model(json_path: str, _file_hash: str) -> dict:
+    """Cachea el parseo del JSON de quality. _file_hash fuerza invalidación cuando cambia el archivo."""
+    with open(json_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    return parsear_quality(raw)
+
+
+
 
 #======================
 # Barra lateral
@@ -49,7 +85,7 @@ with st.sidebar:
     if vista=="Reporte":
         tipo_reporte = st.selectbox(
             "Tipo de reporte",
-            ("DataDrift","DataQuality(demo)","ModelPerformance(demo)"),
+            ("DataDrift","DataQuality","ModelPerformance(demo)"),
             index=None,
             placeholder="Selecciona tipo"
         )
@@ -78,7 +114,10 @@ with st.sidebar:
     st.write("---------------")
     st.subheader("Carga de archivos")
 
-    dataframe_upload =None
+    dataframe_upload = None
+
+    #Cada vez que se ejecuta app.py el boton de carga de archivos debe estar vacio.
+    upload_file_csv = None
 
     upload_file_csv= st.file_uploader(
         label="**Cargar dataset**",
@@ -89,59 +128,76 @@ with st.sidebar:
 
     #Dataset hacia notebook evidently
     if upload_file_csv is not None:
-        # lee y guarda el .csv
-        dataframe_upload = pd.read_csv(upload_file_csv)
-        dataframe_upload.to_csv("data/uploaded.csv", index=False)
+        # Generar hash del archivo para detectar si cambió
+        file_bytes = upload_file_csv.getvalue()
+        file_hash = hashlib.md5(file_bytes).hexdigest()
 
-        # Ejecutamos procesamiento.py 
-        # Para fines de prueba se reemplazo 'subprocess.run' por 'subprocess.Popen' el cual se diferencia en basicamente en que momento entrega el output.
-        # .run -> una vez finalizado el proceso entrega un output.
-        # .Popen -> entrega output durante ejecución. se hace uso de parametros.
+        # Leer CSV cacheado (no se re-lee si es el mismo archivo)
+        dataframe_upload = cargar_csv(file_bytes)
 
-        proceso = subprocess.Popen(
-            [sys.executable, "procesamiento.py"],
-            text=True,
-            stdout= subprocess.PIPE,
-            stderr= subprocess.STDOUT
-        )
+        # Solo ejecutar el pipeline si el archivo es nuevo
+        if st.session_state.get("last_file_hash") != file_hash:
+            dataframe_upload.to_csv("data/uploaded.csv", index=False)
 
-        #Ya configurado el output lo mostramos en la terminal durante ejecución de streamlit.
-        for linea in proceso.stdout:
-            print(linea, end="")
+            # Ejecutamos procesamientocopy.py
+            # .Popen -> entrega output durante ejecución.
+            proceso = subprocess.Popen(
+                [sys.executable, "procesamientocopy.py"],
+                text=True,
+                stdout= subprocess.PIPE,
+                stderr= subprocess.STDOUT
+            )
 
-        #notebook = subprocess.run(
-        #    [sys.executable, "procesamiento.py"],
-        #    capture_output=True,
-        #    text=True,
-        #    timeout=500 #agregamos 5 minutos de espera maxima para que procesamiento.py se ejecuta, de lo contrario arroja una exepción
-        #)
+            #Ya configurado el output lo mostramos en la terminal durante ejecución de streamlit.
+            for linea in proceso.stdout:
+                print(linea, end="")
 
-        #Una vez termino el flujo del notebook:
-        #   lee el json generado para posteriormente parser.py lo procese
-        #if notebook.returncode == 0:
-        #    with open ("data/snapshots/data_drift_report.json", "r", encoding="utf-8") as f:
-        #        cargar_json = json.load(f)
+            #Esperamos a que el proceso termine para obtener returncode.
+            proceso.wait()
 
-            #Usamos 'st.session_state' para persistir variables entre ejecuciones de streamlit.
-            #llamamos a la función de 'parser.py'.
-        #    st.session_state["drift_data"] = parsear_drift(cargar_json)
-        #    st.session_state["drift_nombre"] = "data_drift_report.json"
+            #Una vez termino el flujo del notebook:
+            #   lee el json generado para posteriormente parser.py lo procese
+            if proceso.returncode == 0:
+                drift_data = cargar_y_parsear_drift(
+                    "data/snapshots/data_drift_report.json", file_hash
+                )
+                quality_data = cargar_y_parsear_quality(
+                    "data/snapshots/data_quality_report.json", file_hash
+                )
+                model_data = cargar_y_parsear_model(
+                    "data/snapshots/model_performance_report.json", file_hash
+                )
 
-            #Alerta para validar que se ha cargado correctamente el archivo csv.
-        #    st.success("Archivo CSV cargado correctamente!", icon="🟢")
+                #Usamos 'st.session_state' para persistir variables entre ejecuciones de streamlit.
+                st.session_state["drift_data"] =        drift_data
+                st.session_state["drift_nombre"] =      "data_drift_report.json"
+                st.session_state["quality_data"] =      quality_data
+                st.session_state["quality_nombre"] = "  data_quality_report.json"
+                st.session_state["last_file_hash"] =    file_hash
+                st.session_state["model_data"] =        model_data
+                st.session_state["model_nombre"] =      "model_performance.json"
 
-        #Logs para captar error en caso de que archivo no cargue correctamente.
-        #else:
-        #    ex = RuntimeError("RuntimeError exception")
-        #    st.exception(ex)
-        #    st.code(notebook.stderr) 
-        #    st.code(notebook.stdout)
+                #Alerta para validar que se ha cargado correctamente el archivo csv.
+                st.success("Archivo CSV cargado correctamente!", icon="🟢")
+
+            #Logs para captar error en caso de que archivo no cargue correctamente.
+            else:
+                st.error(f"Error en procesamiento (codigo {proceso.returncode})")
+        else:
+            # El archivo ya fue procesado, usamos datos del cache
+            st.success("Dataset ya procesado (desde cache)", icon="🟢")
     
     else:
         #Si se quita el csv cargado eliminamos la data que persiste. (usamos .pop)
-        #(drift_data / drift_nombre)
+        #(drift_data / drift_nombre / quality_data / quality_nombre / last_file_hash)
+        st.warning("Archivo 'uploaded.csv' se encuentra sin contenido")
         st.session_state.pop("drift_data", None)
         st.session_state.pop("drift_nombre", None)
+        st.session_state.pop("quality_data", None)
+        st.session_state.pop("quality_nombre", None)
+        st.session_state.pop("last_file_hash", None)
+        st.session_state.pop("model_data", None)
+        st.session_state.pop("model_nombre", None)
 
     #--- Sección Exportar ---
     #st.write("---------------")
@@ -223,7 +279,7 @@ if vista=="Reporte":
             st.header("Datasets evidently")
 
             df_ref = dataframe_upload
-            df_act = procesamiento.df_modified
+            df_act = pd.read_csv("data/modified.csv")
 
             #Dataset Referencia
             st.subheader("Dataset de referencia")
@@ -234,7 +290,7 @@ if vista=="Reporte":
             st.dataframe(df_act)
 
         #--- Reporte Data Quality ---
-        elif tipo_reporte=="DataQuality(demo)":
+        elif tipo_reporte=="DataQuality":
             with open("reports/data_quality/data_quality_report.html", 'r', encoding="utf-8") as f:
                 html_data_quality = f.read()
                 st.components.v1.html(html_data_quality, height=2000, scrolling=True)
@@ -305,7 +361,7 @@ if vista=="Dashboard":
             data = st.session_state.get("quality_data")
 
             if data is not None:
-                vista_drift.render(data, dataframe_upload) #Cargamos vista de data drift
+                vista_quality.render(data, dataframe_upload) #Cargamos vista de data quality
 
         #-----------------------------
         # Pagina 3 - Model Performance
@@ -314,7 +370,7 @@ if vista=="Dashboard":
             data = st.session_state.get("model_data")
 
             if data is not None:
-                vista_drift.render(data, dataframe_upload) #Cargamos vista de data drift
+                vista_model.render(data, dataframe_upload) #Cargamos vista de Model Performance
 
 
         
