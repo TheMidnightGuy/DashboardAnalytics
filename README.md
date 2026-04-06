@@ -8,6 +8,11 @@ Logra evaluar la calidad de los datos para permitir un entrenamiento del Modelo 
 
 ## Ejecutar en local
 
+**Clonar repositorio**
+```bash
+git clone https://github.com/TheMidnightGuy/DashboardAnalytics.git
+```
+
 ### Requisitos
 
 - Poetry instalado
