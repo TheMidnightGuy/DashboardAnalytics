@@ -10,9 +10,10 @@ import json
 import subprocess
 import sys
 import hashlib
+import os
 
 #importamos modulos y vistas
-from core.parser import parsear_drift, parsear_quality
+from core.parser import parsear_drift, parsear_quality, parsear_model
 
 import vistas.data_drift as vista_drift
 import vistas.data_quality as vista_quality
@@ -58,10 +59,10 @@ def cargar_y_parsear_quality(json_path: str, _file_hash: str) -> dict:
 
 @st.cache_data
 def cargar_y_parsear_model(json_path: str, _file_hash: str) -> dict:
-    """Cachea el parseo del JSON de quality. _file_hash fuerza invalidación cuando cambia el archivo."""
+    """Cachea el parseo del JSON de model performance. _file_hash fuerza invalidación cuando cambia el archivo."""
     with open(json_path, "r", encoding="utf-8") as f:
         raw = json.load(f)
-    return parsear_quality(raw)
+    return parsear_model(raw)
 
 
 
@@ -126,6 +127,9 @@ with st.sidebar:
         accept_multiple_files=False
     )
 
+    #Disclaimer
+    st.caption("Nota: El tiempo de procesamiento del archivo CSV depende del equipo donde se ejecute y el volumen de datos.")
+
     #Dataset hacia notebook evidently
     if upload_file_csv is not None:
         # Generar hash del archivo para detectar si cambió
@@ -139,10 +143,10 @@ with st.sidebar:
         if st.session_state.get("last_file_hash") != file_hash:
             dataframe_upload.to_csv("data/uploaded.csv", index=False)
 
-            # Ejecutamos procesamientocopy.py
+            # Ejecutamos diagnostico.py
             # .Popen -> entrega output durante ejecución.
             proceso = subprocess.Popen(
-                [sys.executable, "procesamientocopy.py"],
+                [sys.executable, "src/diagnostico.py"],
                 text=True,
                 stdout= subprocess.PIPE,
                 stderr= subprocess.STDOUT
@@ -164,9 +168,10 @@ with st.sidebar:
                 quality_data = cargar_y_parsear_quality(
                     "data/snapshots/data_quality_report.json", file_hash
                 )
-                model_data = cargar_y_parsear_model(
-                    "data/snapshots/model_performance_report.json", file_hash
-                )
+                model_data = None
+                model_perf_path = "data/snapshots/model_performance_report.json"
+                if os.path.exists(model_perf_path):
+                    model_data = cargar_y_parsear_model(model_perf_path, file_hash)
 
                 #Usamos 'st.session_state' para persistir variables entre ejecuciones de streamlit.
                 st.session_state["drift_data"] =        drift_data
@@ -371,6 +376,8 @@ if vista=="Dashboard":
 
             if data is not None:
                 vista_model.render(data, dataframe_upload) #Cargamos vista de Model Performance
+            elif upload_file_csv is not None:
+                st.info("No se generó reporte de Model Performance — el dataset no tiene columna target binaria.")
 
 
         

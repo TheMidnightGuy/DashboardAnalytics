@@ -155,3 +155,61 @@ def parsear_quality(raw: dict) -> dict:
             })
 
     return resultado
+
+
+def parsear_model(raw: dict) -> dict:
+
+    resultado = {
+        "resumen":    {},   # métricas globales (accuracy, precision, recall, f1, tpr, tnr, fpr, fnr)
+        "por_clase":  {},   # métricas desglosadas por clase (f1, precision, recall)
+        "tests":      [],   # resultados de tests FAIL
+    }
+
+    # Mapa de nombre corto -> clave en metric_name de Evidently
+    metricas_globales = {
+        "accuracy":  "Accuracy(",
+        "precision": "Precision(",
+        "recall":    "Recall(",
+        "f1":        "F1Score(",
+        "tpr":       "TPR(",
+        "tnr":       "TNR(",
+        "fpr":       "FPR(",
+        "fnr":       "FNR(",
+    }
+
+    metricas_por_clase = {
+        "f1":        "F1ByLabel(",
+        "precision": "PrecisionByLabel(",
+        "recall":    "RecallByLabel(",
+    }
+
+    for m in raw["metrics"]:
+        nombre = m["metric_name"]
+        value  = m["value"]
+
+        # ── Métricas globales (valor escalar) ──────────────
+        for clave, patron in metricas_globales.items():
+            if patron in nombre and "ByLabel" not in nombre:
+                if isinstance(value, (int, float)):
+                    resultado["resumen"][clave] = round(float(value), 4)
+                break
+
+        # ── Métricas por clase (valor dict) ────────────────
+        for clave, patron in metricas_por_clase.items():
+            if patron in nombre:
+                if isinstance(value, dict):
+                    resultado["por_clase"][clave] = {
+                        str(k): round(float(v), 4) for k, v in value.items()
+                    }
+                break
+
+    # ── Tests fallidos ─────────────────────────────────────
+    for t in raw.get("tests", []):
+        if t.get("status") == "FAIL":
+            resultado["tests"].append({
+                "nombre":      t["name"],
+                "descripcion": t["description"],
+                "critico":     t.get("test_config", {}).get("is_critical", False),
+            })
+
+    return resultado
