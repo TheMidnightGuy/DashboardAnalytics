@@ -2,7 +2,7 @@
 #Descripcion: Construye imagen docker y la publica como artefacto a traves de GHCR.IO en el repositorio.
 
 name: Dashboard Analytics app
-run-name: Creando artecto en GHCR
+run-name: Creando artefacto en GHCR
 on: [push]
 
 env:
@@ -42,7 +42,7 @@ jobs:
           run: pip install poetry
         #Dependencias
         - name: Instalar dependencias
-          run: poetry install --no-interaction --no-ansi
+          run: poetry install --no-interaction --no-ansi --no-root
 
         #login ghcr (GitHub Container Registry)
         - name: login GHCR
