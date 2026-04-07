@@ -1,0 +1,60 @@
+#Workflow CI/CD
+#Descripcion: Construye imagen docker y la publica como artefacto a traves de GHCR.IO en el repositorio.
+
+name: Dashboard Analytics app
+run-name: Creando artecto en GHCR
+on: [push]
+
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME: themidnightguy/dashboard_analytics
+
+jobs:
+    #JOB-N1 - Setup, dependencias y subir imagen docker
+    build-push-ghcr:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+            attestations: write
+            id-token: write
+
+        steps:
+        #checkout
+        - name: Chequeo de código
+          uses: actions/checkout@v4
+        #Poetry cache on runner
+        - name: Cache Poetry
+          uses: actions/cache@v4
+          with:
+            path: ~/.cache/pypoetry
+            key: ${{runner.os}}-poetry-${{hashFiles('**/poetry.lock')}}
+            restore-keys: |
+                ${{runner.os}}-poetry
+        #Python
+        - name: Python SetUp
+          uses: actions/setup-python@v4
+          with:
+            python-version: "3.12.0"
+
+        #Poetry
+        - name: Poetry setup
+          run: pip install poetry
+        #Dependencias
+        - name: Instalar dependencias
+          run: poetry install --no-interaction --no-ansi
+
+        #login ghcr (GitHub Container Registry)
+        - name: login GHCR
+          uses: docker/login-action@v3
+          with:
+            registry: ${{env.REGISTRY}}
+            username: ${{github.actor}}
+            password: ${{secrets.GITHUB_TOKEN}}
+
+        #build-push-actions
+        - name: Build image
+          run: docker build -t ${{env.REGISTRY}}/${{env.IMAGE_NAME}}:latest .
+
+        - name: Push image
+          run: docker push ${{env.REGISTRY}}/${{env.IMAGE_NAME}}:latest

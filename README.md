@@ -46,3 +46,28 @@ poetry install
 ```bash
 streamlit run app.py
 ```
+
+## Ejecutar con Docker
+
+### Requisitos
+
+- Docker instalado en el equipo
+
+**1. Clonar repositorio**
+```bash
+git clone https://github.com/TheMidnightGuy/DashboardAnalytics.git
+cd DashboardAnalytics
+```
+**2. Descargar imagen desde GHCR**
+```bash
+docker pull ghcr.io/themidnightguy/dashboard_analytics:latest
+```
+
+**3. Ejecutar contenedor**
+```bash
+docker run -p 8501:8501 dashboard-analytics
+```
+
+**4. Acceder a la aplicación**
+
+Abrir en el navegador: `http://localhost:8501`
